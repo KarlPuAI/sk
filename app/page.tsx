@@ -32,6 +32,9 @@ const SnakeGame: React.FC = () => {
   const [gameOver, setGameOver] = useState(false);
   const moveRef = useRef(direction);
   moveRef.current = direction;
+  const [playerName, setPlayerName] = useState("");
+  const [showNameInput, setShowNameInput] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // 首次渲染后再生成随机 food
   useEffect(() => {
@@ -96,12 +99,45 @@ const SnakeGame: React.FC = () => {
     return () => clearInterval(interval);
   }, [food, gameOver]);
 
+  useEffect(() => {
+    if (gameOver) {
+      setShowNameInput(true);
+    } else {
+      setShowNameInput(false);
+      setPlayerName("");
+      setSaveStatus(null);
+    }
+  }, [gameOver]);
+
   const handleRestart = () => {
     setSnake(INITIAL_SNAKE);
     setDirection(INITIAL_DIRECTION);
     setFood(getRandomFood(INITIAL_SNAKE));
     setScore(0);
     setGameOver(false);
+  };
+
+  const handleSaveScore = async () => {
+    if (!playerName) {
+      setSaveStatus("请输入名字");
+      return;
+    }
+    setSaveStatus("保存中...");
+    try {
+      const res = await fetch("/api/save-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_name: playerName, score }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSaveStatus("保存成功！");
+      } else {
+        setSaveStatus("保存失败：" + (data.error || "未知错误"));
+      }
+    } catch (e) {
+      setSaveStatus("保存失败：" + (e instanceof Error ? e.message : String(e)));
+    }
   };
 
   return (
@@ -149,6 +185,26 @@ const SnakeGame: React.FC = () => {
           >
             重新开始
           </button>
+        </div>
+      )}
+      {showNameInput && (
+        <div className="mt-4 flex flex-col items-center">
+          <div className="mb-2">请输入你的名字保存分数：</div>
+          <input
+            className="border px-2 py-1 rounded mb-2"
+            value={playerName}
+            onChange={e => setPlayerName(e.target.value)}
+            maxLength={20}
+            placeholder="你的名字"
+          />
+          <button
+            className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={handleSaveScore}
+            disabled={!playerName || saveStatus === "保存中..."}
+          >
+            保存分数
+          </button>
+          {saveStatus && <div className="mt-2 text-sm">{saveStatus}</div>}
         </div>
       )}
       <div className="mt-4 text-gray-500 text-sm">方向键控制移动</div>
